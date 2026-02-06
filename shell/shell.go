@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"strings"
-	"syscall"
 
 	"mvdan.cc/sh/v3/expand"
 	"mvdan.cc/sh/v3/interp"
@@ -35,6 +34,11 @@ func RunWithIO(ctx context.Context, script Script, args []string, stdin io.Reade
 
 	// Prepend "--" to args to prevent them from being interpreted as shell options
 	params := append([]string{"--"}, args...)
+
+	// Create a cancellable context for signal handling
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	runner, err := interp.New(
 		interp.StdIO(stdin, stdout, stderr),
 		interp.Env(expand.ListEnviron(os.Environ()...)),
@@ -47,20 +51,18 @@ func RunWithIO(ctx context.Context, script Script, args []string, stdin io.Reade
 	// Run the script in a goroutine so we can handle signals
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- runner.Run(ctx, prog)
+		errCh <- runner.Run(runCtx, prog)
 	}()
 
-	// Wait for completion or forward signals
+	// Wait for completion or handle signals
 	for {
 		select {
 		case err := <-errCh:
 			return err
-		case sig := <-sigCh:
-			// Forward signal to the process group
-			// Using negative PID sends to all processes in the group
-			if signum, ok := sig.(syscall.Signal); ok {
-				_ = syscall.Kill(-os.Getpid(), signum)
-			}
+		case <-sigCh:
+			// Cancel the context to stop the interpreter
+			// This will cause runner.Run to return and kill any child processes
+			cancel()
 		}
 	}
 }
