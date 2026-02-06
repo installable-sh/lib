@@ -103,7 +103,7 @@ func TestRun(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 
-			err := RunWithIO(context.Background(), tt.script, tt.args, strings.NewReader(""), &stdout, &stderr, nil)
+			err := RunWithIO(context.Background(), tt.script, tt.args, strings.NewReader(""), &stdout, &stderr)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("RunWithIO() error = %v, wantErr %v", err, tt.wantErr)
@@ -134,7 +134,7 @@ func TestRunWithIO_Stdin(t *testing.T) {
 	var stdout bytes.Buffer
 	stdin := strings.NewReader("hello\n")
 
-	err := RunWithIO(context.Background(), script, nil, stdin, &stdout, &bytes.Buffer{}, nil)
+	err := RunWithIO(context.Background(), script, nil, stdin, &stdout, &bytes.Buffer{})
 	if err != nil {
 		t.Fatalf("RunWithIO() error: %v", err)
 	}

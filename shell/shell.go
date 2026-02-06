@@ -19,13 +19,12 @@ type Script struct {
 }
 
 // Run executes a shell script with the given arguments.
-func Run(ctx context.Context, script Script, args []string, sigCh <-chan os.Signal) error {
-	return RunWithIO(ctx, script, args, os.Stdin, os.Stdout, os.Stderr, sigCh)
+func Run(ctx context.Context, script Script, args []string) error {
+	return RunWithIO(ctx, script, args, os.Stdin, os.Stdout, os.Stderr)
 }
 
 // RunWithIO executes a shell script with custom I/O streams.
-// sigCh receives signals that should be forwarded to the running script.
-func RunWithIO(ctx context.Context, script Script, args []string, stdin io.Reader, stdout, stderr io.Writer, sigCh <-chan os.Signal) error {
+func RunWithIO(ctx context.Context, script Script, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	parser := syntax.NewParser()
 	prog, err := parser.Parse(strings.NewReader(script.Content), script.Name)
 	if err != nil {
@@ -34,10 +33,6 @@ func RunWithIO(ctx context.Context, script Script, args []string, stdin io.Reade
 
 	// Prepend "--" to args to prevent them from being interpreted as shell options
 	params := append([]string{"--"}, args...)
-
-	// Create a cancellable context for signal handling
-	runCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
 
 	runner, err := interp.New(
 		interp.StdIO(stdin, stdout, stderr),
@@ -48,21 +43,5 @@ func RunWithIO(ctx context.Context, script Script, args []string, stdin io.Reade
 		return fmt.Errorf("interpreter error: %w", err)
 	}
 
-	// Run the script in a goroutine so we can handle signals
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- runner.Run(runCtx, prog)
-	}()
-
-	// Wait for completion or handle signals
-	for {
-		select {
-		case err := <-errCh:
-			return err
-		case <-sigCh:
-			// Cancel the context to stop the interpreter
-			// This will cause runner.Run to return and kill any child processes
-			cancel()
-		}
-	}
+	return runner.Run(ctx, prog)
 }
