@@ -8,7 +8,7 @@ import (
 
 // V can be set at build time via:
 //
-//	go build -ldflags="-X github.com/installable-sh/docker/v1/internal/version.V=1.0.0"
+//	go build -ldflags="-X github.com/installable-sh/lib/version.V=1.0.0"
 var V = ""
 
 // versionRegex extracts major version from module path (e.g., /v1 -> 1)
