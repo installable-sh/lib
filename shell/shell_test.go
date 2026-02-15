@@ -5,6 +5,8 @@ import (
 	"context"
 	"strings"
 	"testing"
+
+	"github.com/installable-sh/lib/log"
 )
 
 func TestRun(t *testing.T) {
@@ -102,11 +104,12 @@ func TestRun(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
+			logger := log.New("test")
 
-			err := RunWithIO(context.Background(), tt.script, tt.args, strings.NewReader(""), &stdout, &stderr)
+			err := Run(context.Background(), tt.script, tt.args, strings.NewReader(""), &stdout, &stderr, logger)
 
 			if (err != nil) != tt.wantErr {
-				t.Errorf("RunWithIO() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Run() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
@@ -115,17 +118,17 @@ func TestRun(t *testing.T) {
 			}
 
 			if got := stdout.String(); got != tt.wantStdout {
-				t.Errorf("RunWithIO() stdout = %q, want %q", got, tt.wantStdout)
+				t.Errorf("Run() stdout = %q, want %q", got, tt.wantStdout)
 			}
 
 			if got := stderr.String(); got != tt.wantStderr {
-				t.Errorf("RunWithIO() stderr = %q, want %q", got, tt.wantStderr)
+				t.Errorf("Run() stderr = %q, want %q", got, tt.wantStderr)
 			}
 		})
 	}
 }
 
-func TestRunWithIO_Stdin(t *testing.T) {
+func TestRun_Stdin(t *testing.T) {
 	script := Script{
 		Content: "read line; echo got: $line",
 		Name:    "test.sh",
@@ -133,14 +136,15 @@ func TestRunWithIO_Stdin(t *testing.T) {
 
 	var stdout bytes.Buffer
 	stdin := strings.NewReader("hello\n")
+	logger := log.New("test")
 
-	err := RunWithIO(context.Background(), script, nil, stdin, &stdout, &bytes.Buffer{})
+	err := Run(context.Background(), script, nil, stdin, &stdout, &bytes.Buffer{}, logger)
 	if err != nil {
-		t.Fatalf("RunWithIO() error: %v", err)
+		t.Fatalf("Run() error: %v", err)
 	}
 
 	want := "got: hello\n"
 	if got := stdout.String(); got != want {
-		t.Errorf("RunWithIO() stdout = %q, want %q", got, want)
+		t.Errorf("Run() stdout = %q, want %q", got, want)
 	}
 }

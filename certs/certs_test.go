@@ -5,10 +5,13 @@ import (
 	"encoding/pem"
 	"testing"
 	"time"
+
+	"github.com/installable-sh/lib/log"
 )
 
 func TestCertPool(t *testing.T) {
-	pool, err := CertPool()
+	logger := log.New("test")
+	pool, err := CertPool(logger)
 	if err != nil {
 		t.Fatalf("CertPool() error = %v", err)
 	}
@@ -24,7 +27,8 @@ func TestCertPool_WithEmptyEmbedded(t *testing.T) {
 		t.Skip("CACerts is not empty, skipping empty test")
 	}
 
-	pool, err := CertPool()
+	logger := log.New("test")
+	pool, err := CertPool(logger)
 	if err != nil {
 		t.Fatalf("CertPool() error = %v", err)
 	}
@@ -71,7 +75,8 @@ mRGunUHBcnWEvgJBQl9nJEiU0Zsnvgc/ubhPgXRR4Xq37Z0j4r7g1SgEEzwxA57d
 emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
 -----END CERTIFICATE-----`)
 
-	pool, err := CertPool()
+	logger := log.New("test")
+	pool, err := CertPool(logger)
 	if err != nil {
 		t.Fatalf("CertPool() error = %v", err)
 	}

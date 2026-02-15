@@ -15,6 +15,7 @@ import (
 
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/installable-sh/lib/certs"
+	"github.com/installable-sh/lib/log"
 )
 
 // Script represents a fetched shell script.
@@ -31,12 +32,14 @@ type Options struct {
 }
 
 // NewClient creates an HTTP client with system and embedded CA certificates.
-func NewClient() (*retryablehttp.Client, error) {
-	certPool, err := certs.CertPool()
+// Debug output is controlled by the logger's debug level.
+func NewClient(logger log.DebugLogger) (*retryablehttp.Client, error) {
+	certPool, err := certs.CertPool(logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load certificates: %w", err)
 	}
 
+	logger.Debugf("Creating HTTP client with TLS config")
 	client := retryablehttp.NewClient()
 	client.RetryMax = 0 // Unlimited retries
 	client.Logger = nil // Silence debug logging
@@ -50,7 +53,9 @@ func NewClient() (*retryablehttp.Client, error) {
 }
 
 // Fetch retrieves a script from a URL.
-func Fetch(ctx context.Context, client *retryablehttp.Client, opts Options) (Script, error) {
+// Debug output is controlled by the logger's debug level.
+func Fetch(ctx context.Context, client *retryablehttp.Client, opts Options, logger log.DebugLogger) (Script, error) {
+	logger.Debugf("Creating request for %s", opts.URL)
 	req, err := retryablehttp.NewRequestWithContext(ctx, "GET", opts.URL, nil)
 	if err != nil {
 		return Script{}, err
@@ -65,28 +70,40 @@ func Fetch(ctx context.Context, client *retryablehttp.Client, opts Options) (Scr
 	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
 	req.Header.Set("Accept-Encoding", "gzip, deflate")
 
+	logger.Debugf("Request headers: User-Agent=%s", userAgent)
+
 	if opts.NoCache {
 		req.Header.Set("Cache-Control", "no-cache, no-store, must-revalidate")
 		req.Header.Set("Pragma", "no-cache")
+		logger.Debugf("Cache disabled via headers")
 	}
 
 	if opts.SendEnv {
+		envCount := 0
 		for _, env := range os.Environ() {
 			parts := strings.SplitN(env, "=", 2)
 			if len(parts) == 2 && isValidHeaderName(parts[0]) {
 				req.Header.Set("X-Env-"+parts[0], parts[1])
+				envCount++
 			}
 		}
+		logger.Debugf("Sending %d environment variables as X-Env-* headers", envCount)
 	}
 
+	logger.Debugf("Executing HTTP GET request")
 	resp, err := client.Do(req)
 	if err != nil {
-		return Script{}, err
+		return Script{}, logger.Errorf("HTTP request failed: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
+	logger.Debugf("Response: HTTP %d, Content-Type=%s, Content-Encoding=%s",
+		resp.StatusCode,
+		resp.Header.Get("Content-Type"),
+		resp.Header.Get("Content-Encoding"))
+
 	if resp.StatusCode != http.StatusOK {
-		return Script{}, fmt.Errorf("HTTP %d", resp.StatusCode)
+		return Script{}, logger.Errorf("HTTP %d from %s", resp.StatusCode, opts.URL)
 	}
 
 	name := scriptName(resp, opts.URL)
@@ -94,6 +111,8 @@ func Fetch(ctx context.Context, client *retryablehttp.Client, opts Options) (Scr
 	if err != nil {
 		return Script{}, err
 	}
+
+	logger.Debugf("Received script: name=%s, size=%d bytes", name, len(content))
 
 	return Script{Content: content, Name: name}, nil
 }
