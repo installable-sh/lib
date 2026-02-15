@@ -34,6 +34,6 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "chore: weekly ca-certificates update"
+            git commit -m "fix: weekly ca-certificates update"
             git push
           fi
