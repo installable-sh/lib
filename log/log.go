@@ -6,6 +6,13 @@ import (
 	"os"
 )
 
+// DebugLogger is an interface for logging used by lib packages.
+// Pass nil to disable logging in functions that accept this interface.
+type DebugLogger interface {
+	Debugf(format string, args ...any)
+	Errorf(format string, args ...any)
+}
+
 // Logger provides leveled logging with debug support.
 type Logger struct {
 	debug  bool
@@ -40,16 +47,16 @@ func (l *Logger) Debug() bool {
 // Debugf prints a debug message if debug mode is enabled.
 func (l *Logger) Debugf(format string, args ...any) {
 	if l.debug {
-		fmt.Fprintf(l.output, "[%s] [debug] %s\n", l.prefix, fmt.Sprintf(format, args...))
+		_, _ = fmt.Fprintf(l.output, "[%s] [debug] %s\n", l.prefix, fmt.Sprintf(format, args...))
 	}
 }
 
 // Infof prints an info message.
 func (l *Logger) Infof(format string, args ...any) {
-	fmt.Fprintf(l.output, "[%s] %s\n", l.prefix, fmt.Sprintf(format, args...))
+	_, _ = fmt.Fprintf(l.output, "[%s] %s\n", l.prefix, fmt.Sprintf(format, args...))
 }
 
 // Errorf prints an error message.
 func (l *Logger) Errorf(format string, args ...any) {
-	fmt.Fprintf(l.output, "[%s] error: %s\n", l.prefix, fmt.Sprintf(format, args...))
+	_, _ = fmt.Fprintf(l.output, "[%s] error: %s\n", l.prefix, fmt.Sprintf(format, args...))
 }

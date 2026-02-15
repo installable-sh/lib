@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/installable-sh/lib/log"
 )
 
 func TestFetch(t *testing.T) {
@@ -89,6 +91,8 @@ func TestFetch(t *testing.T) {
 			server := httptest.NewServer(tt.handler)
 			defer server.Close()
 
+			logger := log.New("test")
+
 			// Set URL to server URL with a script path
 			if tt.name == "script name from URL path" {
 				tt.opts.URL = server.URL + "/myscript.sh"
@@ -96,12 +100,12 @@ func TestFetch(t *testing.T) {
 				tt.opts.URL = server.URL + "/script.sh"
 			}
 
-			client, err := NewClient()
+			client, err := NewClient(logger)
 			if err != nil {
 				t.Fatalf("NewClient() error: %v", err)
 			}
 
-			script, err := Fetch(context.Background(), client, tt.opts)
+			script, err := Fetch(context.Background(), client, tt.opts, logger)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Fetch() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -151,7 +155,8 @@ func TestIsValidHeaderName(t *testing.T) {
 }
 
 func TestNewClient(t *testing.T) {
-	client, err := NewClient()
+	logger := log.New("test")
+	client, err := NewClient(logger)
 	if err != nil {
 		t.Fatalf("NewClient() error: %v", err)
 	}
