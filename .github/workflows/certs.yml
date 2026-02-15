@@ -1,0 +1,39 @@
+name: Update CA Certificates
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * 0" # Weekly on Sunday at midnight UTC
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  update-certs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract CA certificates from Alpine
+        run: |
+          docker run --rm -v "$PWD/certs:/out" alpine:latest sh -c '
+            apk add --no-cache ca-certificates
+            cp /etc/ssl/certs/ca-certificates.crt /out/ca-certificates.crt
+          '
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add certs/ca-certificates.crt
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: weekly ca-certificates update"
+            git push
+          fi
