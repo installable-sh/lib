@@ -2,7 +2,9 @@ package certs
 
 import (
 	"crypto/x509"
+	"encoding/pem"
 	"testing"
+	"time"
 )
 
 func TestCertPool(t *testing.T) {
@@ -88,4 +90,52 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
 	if pool.Equal(x509.NewCertPool()) {
 		t.Fatal("CertPool() returned empty pool after appending certs")
 	}
+}
+
+func TestCACerts_NotStale(t *testing.T) {
+	if len(CACerts) == 0 {
+		t.Skip("CACerts is empty")
+	}
+
+	var validCerts, expiredCerts int
+	now := time.Now()
+	data := CACerts
+
+	for {
+		block, rest := pem.Decode(data)
+		if block == nil {
+			break
+		}
+		data = rest
+
+		if block.Type != "CERTIFICATE" {
+			continue
+		}
+
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			continue
+		}
+
+		if now.After(cert.NotAfter) {
+			expiredCerts++
+		} else {
+			validCerts++
+		}
+	}
+
+	totalCerts := validCerts + expiredCerts
+	if totalCerts == 0 {
+		t.Fatal("No certificates found in ca-certificates.crt")
+	}
+
+	// Fail if more than 20% of certificates are expired
+	expiredRatio := float64(expiredCerts) / float64(totalCerts)
+	if expiredRatio > 0.2 {
+		t.Errorf("CA certificates are stale: %d/%d (%.0f%%) expired",
+			expiredCerts, totalCerts, expiredRatio*100)
+	}
+
+	t.Logf("Certificate status: %d valid, %d expired out of %d total",
+		validCerts, expiredCerts, totalCerts)
 }
